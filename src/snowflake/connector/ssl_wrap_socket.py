@@ -16,6 +16,7 @@ import time
 from functools import wraps
 from inspect import getfullargspec as get_args
 from socket import socket
+from typing import Optional
 
 import certifi
 import OpenSSL.SSL
@@ -99,7 +100,10 @@ def ssl_wrap_socket_with_ocsp(*args, **kwargs):
     return ret
 
 
-def _openssl_connect(hostname, port=443, max_retry=20):
+def _openssl_connect(hostname: str,
+                     port: int = 443,
+                     max_retry: int = 20,
+                     timeout: Optional[int] = None) -> OpenSSL.SSL.Connection:
     """The OpenSSL connection without validating certificates.
 
     This is used to diagnose SSL issues.
@@ -109,10 +113,11 @@ def _openssl_connect(hostname, port=443, max_retry=20):
     for _ in range(max_retry):
         try:
             client = socket()
-            # client.settimeout(5)
             client.connect((hostname, port))
-            client_ssl = OpenSSL.SSL.Connection(
-                OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD), client)
+            context = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
+            if timeout is not None:
+                context.set_timeout(timeout)
+            client_ssl = OpenSSL.SSL.Connection(context, client)
             client_ssl.set_connect_state()
             client_ssl.set_tlsext_host_name(hostname.encode('utf-8'))
             client_ssl.do_handshake()
